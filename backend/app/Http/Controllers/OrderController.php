@@ -7,6 +7,7 @@ use App\Http\Requests\StoreOrderRequest;
 use App\Models\Asset;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\OrderMatchingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +82,7 @@ class OrderController extends Controller
                 $asset->save();
             }
 
-            return Order::create([
+            $order = Order::create([
                 'user_id' => $user->id,
                 'symbol' => $validated['symbol'],
                 'side' => $validated['side'],
@@ -89,6 +90,16 @@ class OrderController extends Controller
                 'amount' => $validated['amount'],
                 'status' => Order::STATUS_OPEN,
             ]);
+
+            // synchronous matching for demo, ideally will be queued
+            $matchingService = app(OrderMatchingService::class);
+            $matchedOrder = $matchingService->findMatchingOrder($order);
+
+            if ($matchedOrder) {
+                $matchingService->executeMatch($order, $matchedOrder);
+            }
+
+            return $order->fresh();
         });
 
         if (is_array($result) && isset($result['error'])) {
