@@ -2,6 +2,7 @@
 
 use App\Events\TestBroadcastEvent;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +13,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
     Route::get('/user', [AuthenticatedSessionController::class, 'show']);
     Route::get('/profile', ProfileController::class);
+    Route::post('/orders', [OrderController::class, 'store'])
+        ->middleware('throttle:60,1');
 
     Route::get('/test-broadcast', function () {
         event(new TestBroadcastEvent);
