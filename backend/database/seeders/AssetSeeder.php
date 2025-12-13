@@ -23,7 +23,7 @@ class AssetSeeder extends Seeder
         foreach ($demoEmails as $email) {
             $user = User::where('email', $email)->first();
 
-            if (!$user) {
+            if (! $user) {
                 continue;
             }
 
