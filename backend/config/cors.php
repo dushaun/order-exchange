@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://virgosoft.test', 'http://localhost:5173'],
+    'allowed_origins' => ['https://virgosoft.test', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176'],
 
     'allowed_origins_patterns' => [],
 
