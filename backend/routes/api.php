@@ -17,6 +17,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:60,1');
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])
         ->middleware('throttle:60,1');
+    Route::get('/orders', [OrderController::class, 'index'])
+        ->middleware('throttle:60,1');
 
     Route::get('/test-broadcast', function () {
         event(new TestBroadcastEvent);

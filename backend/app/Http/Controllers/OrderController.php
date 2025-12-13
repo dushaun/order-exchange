@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\GetOrdersRequest;
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Asset;
 use App\Models\Order;
@@ -12,6 +13,32 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    public function index(GetOrdersRequest $request): JsonResponse
+    {
+        $symbol = $request->validated()['symbol'];
+
+        $buyOrders = Order::where('symbol', $symbol)
+            ->where('status', Order::STATUS_OPEN)
+            ->where('side', 'buy')
+            ->orderByDesc('price')
+            ->orderBy('created_at', 'asc')
+            ->select(['id', 'symbol', 'side', 'price', 'amount', 'created_at'])
+            ->get();
+
+        $sellOrders = Order::where('symbol', $symbol)
+            ->where('status', Order::STATUS_OPEN)
+            ->where('side', 'sell')
+            ->orderBy('price', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->select(['id', 'symbol', 'side', 'price', 'amount', 'created_at'])
+            ->get();
+
+        return response()->json([
+            'buy_orders' => $buyOrders,
+            'sell_orders' => $sellOrders,
+        ], 200);
+    }
+
     public function store(StoreOrderRequest $request): JsonResponse
     {
         $validated = $request->validated();
