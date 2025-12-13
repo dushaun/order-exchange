@@ -461,3 +461,48 @@ test('executeMatch updates both orders to filled status', function () {
     expect($buyOrder->status)->toBe(Order::STATUS_FILLED);
     expect($sellOrder->status)->toBe(Order::STATUS_FILLED);
 });
+
+test('calculates commission as 1.5 percent of trade value', function () {
+    $amount = '1.00000000';
+    $executedPrice = '50000.00000000';
+
+    $commission = $this->matchingService->calculateCommission($amount, $executedPrice);
+
+    expect($commission)->toBe('750.00000000');
+});
+
+test('calculates commission with small amounts for precision', function () {
+    $amount = '0.10000000';
+    $executedPrice = '45000.00000000';
+
+    $commission = $this->matchingService->calculateCommission($amount, $executedPrice);
+
+    expect($commission)->toBe('67.50000000');
+});
+
+test('commission rounds to 8 decimal places', function () {
+    $amount = '0.12345678';
+    $executedPrice = '45000.12345678';
+
+    $commission = $this->matchingService->calculateCommission($amount, $executedPrice);
+
+    expect($commission)->toMatch('/^\d+\.\d{8}$/');
+});
+
+test('calculates zero commission for zero-value trade', function () {
+    $amount = '0.00000000';
+    $executedPrice = '45000.00000000';
+
+    $commission = $this->matchingService->calculateCommission($amount, $executedPrice);
+
+    expect($commission)->toBe('0.00000000');
+});
+
+test('calculates correct commission for ETH trade', function () {
+    $amount = '1.00000000';
+    $executedPrice = '3000.00000000';
+
+    $commission = $this->matchingService->calculateCommission($amount, $executedPrice);
+
+    expect($commission)->toBe('45.00000000');
+});

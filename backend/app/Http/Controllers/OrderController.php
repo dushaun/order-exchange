@@ -11,6 +11,7 @@ use App\Services\OrderMatchingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -96,7 +97,13 @@ class OrderController extends Controller
             $matchedOrder = $matchingService->findMatchingOrder($order);
 
             if ($matchedOrder) {
-                $matchingService->executeMatch($order, $matchedOrder);
+                $matchResult = $matchingService->executeMatch($order, $matchedOrder);
+
+                Log::info('Order matched with commission', [
+                    'commission' => $matchResult['commission'],
+                    'executed_price' => $matchResult['executedPrice'],
+                    'amount' => $matchResult['amount'],
+                ]);
             }
 
             return $order->fresh();

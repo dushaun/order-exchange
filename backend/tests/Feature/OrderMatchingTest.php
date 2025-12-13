@@ -4,6 +4,7 @@ use App\Models\Asset;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 
 uses(RefreshDatabase::class);
 
@@ -356,4 +357,193 @@ test('best price order is matched first', function () {
 
     expect($seller2Order->status)->toBe(Order::STATUS_FILLED);
     expect($seller1Order->status)->toBe(Order::STATUS_OPEN);
+});
+
+test('matched orders log commission on buyer-initiated match', function () {
+    Log::spy();
+
+    $seller = User::factory()->create(['balance' => '10000.00000000']);
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    $this->actingAs($seller)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00',
+        'amount' => '0.1',
+    ]);
+
+    $response = $this->actingAs($buyer)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00',
+        'amount' => '0.1',
+    ]);
+
+    $response->assertStatus(201);
+    expect($response->json('order.status'))->toBe(Order::STATUS_FILLED);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(function ($message, $context) {
+            return $message === 'Order matched with commission'
+                && $context['commission'] === '67.50000000';
+        })
+        ->once();
+});
+
+test('matched orders log commission on seller-initiated match', function () {
+    Log::spy();
+
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    $this->actingAs($buyer)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00',
+        'amount' => '0.1',
+    ]);
+
+    $seller = User::factory()->create(['balance' => '10000.00000000']);
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $response = $this->actingAs($seller)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00',
+        'amount' => '0.1',
+    ]);
+
+    $response->assertStatus(201);
+    expect($response->json('order.status'))->toBe(Order::STATUS_FILLED);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(function ($message, $context) {
+            return $message === 'Order matched with commission'
+                && $context['commission'] === '67.50000000';
+        })
+        ->once();
+});
+
+test('commission equals 1.5 percent of trade value', function () {
+    Log::spy();
+
+    $seller = User::factory()->create(['balance' => '10000.00000000']);
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $buyer = User::factory()->create(['balance' => '100000.00000000']);
+
+    $this->actingAs($seller)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '50000.00',
+        'amount' => '0.5',
+    ]);
+
+    $response = $this->actingAs($buyer)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '50000.00',
+        'amount' => '0.5',
+    ]);
+
+    $response->assertStatus(201);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(function ($message, $context) {
+            return $message === 'Order matched with commission'
+                && $context['commission'] === '375.00000000';
+        })
+        ->once();
+});
+
+test('commission calculated with executed price from maker order on buyer-initiated match', function () {
+    Log::spy();
+
+    $seller = User::factory()->create(['balance' => '10000.00000000']);
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    $this->actingAs($seller)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '44000.00',
+        'amount' => '0.1',
+    ]);
+
+    $response = $this->actingAs($buyer)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00',
+        'amount' => '0.1',
+    ]);
+
+    $response->assertStatus(201);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(function ($message, $context) {
+            return $message === 'Order matched with commission'
+                && $context['commission'] === '66.00000000'
+                && $context['executed_price'] === '44000.00000000';
+        })
+        ->once();
+});
+
+test('commission calculated with executed price from maker order on seller-initiated match', function () {
+    Log::spy();
+
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    $this->actingAs($buyer)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '46000.00',
+        'amount' => '0.1',
+    ]);
+
+    $seller = User::factory()->create(['balance' => '10000.00000000']);
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $response = $this->actingAs($seller)->postJson('/api/orders', [
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00',
+        'amount' => '0.1',
+    ]);
+
+    $response->assertStatus(201);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(function ($message, $context) {
+            return $message === 'Order matched with commission'
+                && $context['commission'] === '69.00000000'
+                && $context['executed_price'] === '46000.00000000';
+        })
+        ->once();
 });
