@@ -7,6 +7,7 @@ use App\Models\Asset;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
@@ -86,5 +87,49 @@ class OrderController extends Controller
             'message' => 'Order created successfully',
             'order' => $result,
         ], 201);
+    }
+
+    public function cancel(Request $request, Order $order): JsonResponse
+    {
+        if ($order->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'You can only cancel your own orders',
+            ], 403);
+        }
+
+        if ($order->status !== Order::STATUS_OPEN) {
+            return response()->json([
+                'message' => 'Only open orders can be cancelled',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($order) {
+            if ($order->side === 'buy') {
+                $user = User::where('id', $order->user_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                $refundAmount = bcmul($order->amount, $order->price, 8);
+                $user->balance = bcadd($user->balance, $refundAmount, 8);
+                $user->save();
+            } else {
+                $asset = Asset::where('user_id', $order->user_id)
+                    ->where('symbol', $order->symbol)
+                    ->lockForUpdate()
+                    ->first();
+
+                $asset->locked_amount = bcsub($asset->locked_amount, $order->amount, 8);
+                $asset->amount = bcadd($asset->amount, $order->amount, 8);
+                $asset->save();
+            }
+
+            $order->status = Order::STATUS_CANCELLED;
+            $order->save();
+        });
+
+        return response()->json([
+            'message' => 'Order cancelled successfully',
+            'order' => $order->fresh(),
+        ], 200);
     }
 }
