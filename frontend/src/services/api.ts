@@ -29,4 +29,19 @@ export interface ProfileResponse {
 
 export const getProfile = () => api.get<ProfileResponse>('/profile')
 
+export interface CreateOrderRequest {
+  symbol: import('@/types').AssetSymbol
+  side: import('@/types').OrderSide
+  price: string
+  amount: string
+}
+
+export interface CreateOrderResponse {
+  message: string
+  order: import('@/types').Order
+}
+
+export const createOrder = (data: CreateOrderRequest) =>
+  api.post<CreateOrderResponse>('/orders', data)
+
 export default api

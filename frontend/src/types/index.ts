@@ -18,3 +18,25 @@ export interface Asset {
   created_at: string
   updated_at: string
 }
+
+export type OrderSide = 'buy' | 'sell'
+
+export type OrderStatus = 1 | 2 | 3
+
+export const ORDER_STATUS = {
+  OPEN: 1,
+  FILLED: 2,
+  CANCELLED: 3,
+} as const
+
+export interface Order {
+  id: number
+  user_id: number
+  symbol: AssetSymbol
+  side: OrderSide
+  price: string
+  amount: string
+  status: OrderStatus
+  created_at: string
+  updated_at: string
+}
