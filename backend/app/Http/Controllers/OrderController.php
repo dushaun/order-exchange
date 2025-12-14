@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\OrderMatched;
 use App\Http\Requests\GetOrdersRequest;
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Asset;
@@ -44,8 +45,9 @@ class OrderController extends Controller
     public function store(StoreOrderRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $matchResult = null;
 
-        $result = DB::transaction(function () use ($request, $validated) {
+        $result = DB::transaction(function () use ($request, $validated, &$matchResult) {
             $user = User::where('id', $request->user()->id)
                 ->lockForUpdate()
                 ->first();
@@ -111,6 +113,13 @@ class OrderController extends Controller
 
             return $order->fresh();
         });
+
+        if ($matchResult !== null) {
+            $buyer = User::with('assets')->find($matchResult['buyOrder']->user_id);
+            $seller = User::with('assets')->find($matchResult['sellOrder']->user_id);
+
+            OrderMatched::dispatch($matchResult, $buyer, $seller);
+        }
 
         if (is_array($result) && isset($result['error'])) {
             if ($result['error'] === 'insufficient_assets') {
