@@ -16,6 +16,17 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
+    public function myOrders(Request $request): JsonResponse
+    {
+        $orders = Order::where('user_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'orders' => $orders,
+        ], 200);
+    }
+
     public function index(GetOrdersRequest $request): JsonResponse
     {
         $symbol = $request->validated()['symbol'];

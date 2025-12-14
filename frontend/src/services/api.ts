@@ -52,4 +52,18 @@ export interface OrderbookResponse {
 export const getOrderbook = (symbol: import('@/types').AssetSymbol) =>
   api.get<OrderbookResponse>(`/orders?symbol=${symbol}`)
 
+export interface MyOrdersResponse {
+  orders: import('@/types').Order[]
+}
+
+export const getMyOrders = () => api.get<MyOrdersResponse>('/my-orders')
+
+export interface CancelOrderResponse {
+  message: string
+  order: { id: number; status: import('@/types').OrderStatus }
+}
+
+export const cancelOrder = (orderId: number) =>
+  api.post<CancelOrderResponse>(`/orders/${orderId}/cancel`)
+
 export default api

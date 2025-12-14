@@ -13,6 +13,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
     Route::get('/user', [AuthenticatedSessionController::class, 'show']);
     Route::get('/profile', ProfileController::class);
+    Route::get('/my-orders', [OrderController::class, 'myOrders'])
+        ->middleware('throttle:60,1');
     Route::post('/orders', [OrderController::class, 'store'])
         ->middleware('throttle:60,1');
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])
