@@ -40,3 +40,14 @@ export interface Order {
   created_at: string
   updated_at: string
 }
+
+// Simplified order for orderbook display (matches API response)
+// Excludes user_id, status, updated_at per Epic 2 AC:3
+export interface OrderbookOrder {
+  id: number
+  symbol: AssetSymbol
+  side: OrderSide
+  price: string
+  amount: string
+  created_at: string
+}

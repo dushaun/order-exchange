@@ -44,4 +44,12 @@ export interface CreateOrderResponse {
 export const createOrder = (data: CreateOrderRequest) =>
   api.post<CreateOrderResponse>('/orders', data)
 
+export interface OrderbookResponse {
+  buy_orders: import('@/types').OrderbookOrder[]
+  sell_orders: import('@/types').OrderbookOrder[]
+}
+
+export const getOrderbook = (symbol: import('@/types').AssetSymbol) =>
+  api.get<OrderbookResponse>(`/orders?symbol=${symbol}`)
+
 export default api
