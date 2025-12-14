@@ -22,4 +22,11 @@ export const logout = () => api.post('/logout')
 
 export const getUser = () => api.get<import('@/types').User>('/user')
 
+export interface ProfileResponse {
+  user: import('@/types').User
+  assets: import('@/types').Asset[]
+}
+
+export const getProfile = () => api.get<ProfileResponse>('/profile')
+
 export default api
