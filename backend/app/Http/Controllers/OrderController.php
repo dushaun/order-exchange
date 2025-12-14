@@ -98,11 +98,14 @@ class OrderController extends Controller
 
             if ($matchedOrder) {
                 $matchResult = $matchingService->executeMatch($order, $matchedOrder);
+                $matchingService->executeTransfers($matchResult);
 
-                Log::info('Order matched with commission', [
+                Log::info('Order matched and settled', [
                     'commission' => $matchResult['commission'],
                     'executed_price' => $matchResult['executedPrice'],
                     'amount' => $matchResult['amount'],
+                    'buyer_id' => $matchResult['buyOrder']->user_id,
+                    'seller_id' => $matchResult['sellOrder']->user_id,
                 ]);
             }
 

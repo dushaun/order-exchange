@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Asset;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\OrderMatchingService;
@@ -505,4 +506,251 @@ test('calculates correct commission for ETH trade', function () {
     $commission = $this->matchingService->calculateCommission($amount, $executedPrice);
 
     expect($commission)->toBe('45.00000000');
+});
+
+test('credits buyer with full crypto amount on transfer', function () {
+    $seller = User::factory()->create(['balance' => '1000.00000000']);
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    $sellerAsset = Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.10000000',
+    ]);
+
+    $buyerAsset = Asset::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'amount' => '0.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $sellOrder = Order::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $buyOrder = Order::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $matchResult = [
+        'buyOrder' => $buyOrder,
+        'sellOrder' => $sellOrder,
+        'executedPrice' => '45000.00000000',
+        'amount' => '0.10000000',
+        'commission' => '67.50000000',
+    ];
+
+    $this->matchingService->executeTransfers($matchResult);
+
+    $buyerAsset->refresh();
+    expect($buyerAsset->amount)->toBe('0.10000000');
+});
+
+test('credits seller with USD minus commission on transfer', function () {
+    $seller = User::factory()->create(['balance' => '1000.00000000']);
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.10000000',
+    ]);
+
+    Asset::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'amount' => '0.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $sellOrder = Order::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $buyOrder = Order::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $matchResult = [
+        'buyOrder' => $buyOrder,
+        'sellOrder' => $sellOrder,
+        'executedPrice' => '45000.00000000',
+        'amount' => '0.10000000',
+        'commission' => '67.50000000',
+    ];
+
+    $this->matchingService->executeTransfers($matchResult);
+
+    $seller->refresh();
+    expect($seller->balance)->toBe('5432.50000000');
+});
+
+test('reduces seller locked_amount on transfer', function () {
+    $seller = User::factory()->create(['balance' => '1000.00000000']);
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    $sellerAsset = Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.10000000',
+    ]);
+
+    Asset::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'amount' => '0.00000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $sellOrder = Order::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $buyOrder = Order::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $matchResult = [
+        'buyOrder' => $buyOrder,
+        'sellOrder' => $sellOrder,
+        'executedPrice' => '45000.00000000',
+        'amount' => '0.10000000',
+        'commission' => '67.50000000',
+    ];
+
+    $this->matchingService->executeTransfers($matchResult);
+
+    $sellerAsset->refresh();
+    expect($sellerAsset->locked_amount)->toBe('0.00000000');
+});
+
+test('creates buyer asset if it does not exist', function () {
+    $seller = User::factory()->create(['balance' => '1000.00000000']);
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.10000000',
+    ]);
+
+    expect(Asset::where('user_id', $buyer->id)->where('symbol', 'BTC')->exists())->toBeFalse();
+
+    $sellOrder = Order::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $buyOrder = Order::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $matchResult = [
+        'buyOrder' => $buyOrder,
+        'sellOrder' => $sellOrder,
+        'executedPrice' => '45000.00000000',
+        'amount' => '0.10000000',
+        'commission' => '67.50000000',
+    ];
+
+    $this->matchingService->executeTransfers($matchResult);
+
+    $buyerAsset = Asset::where('user_id', $buyer->id)->where('symbol', 'BTC')->first();
+    expect($buyerAsset)->not->toBeNull();
+    expect($buyerAsset->amount)->toBe('0.10000000');
+    expect($buyerAsset->locked_amount)->toBe('0.00000000');
+});
+
+test('increments existing buyer asset amount on transfer', function () {
+    $seller = User::factory()->create(['balance' => '1000.00000000']);
+    $buyer = User::factory()->create(['balance' => '50000.00000000']);
+
+    Asset::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'amount' => '1.00000000',
+        'locked_amount' => '0.10000000',
+    ]);
+
+    $buyerAsset = Asset::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'amount' => '0.50000000',
+        'locked_amount' => '0.00000000',
+    ]);
+
+    $sellOrder = Order::factory()->create([
+        'user_id' => $seller->id,
+        'symbol' => 'BTC',
+        'side' => 'sell',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $buyOrder = Order::factory()->create([
+        'user_id' => $buyer->id,
+        'symbol' => 'BTC',
+        'side' => 'buy',
+        'price' => '45000.00000000',
+        'amount' => '0.10000000',
+        'status' => Order::STATUS_FILLED,
+    ]);
+
+    $matchResult = [
+        'buyOrder' => $buyOrder,
+        'sellOrder' => $sellOrder,
+        'executedPrice' => '45000.00000000',
+        'amount' => '0.10000000',
+        'commission' => '67.50000000',
+    ];
+
+    $this->matchingService->executeTransfers($matchResult);
+
+    $buyerAsset->refresh();
+    expect($buyerAsset->amount)->toBe('0.60000000');
 });

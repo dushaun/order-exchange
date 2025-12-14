@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Asset;
 use App\Models\Order;
+use App\Models\User;
 
 class OrderMatchingService
 {
@@ -54,6 +56,46 @@ class OrderMatchingService
         $usdValue = bcmul($amount, $executedPrice, 8);
 
         return bcmul($usdValue, self::COMMISSION_RATE, 8);
+    }
+
+    /**
+     * @param  array{buyOrder: Order, sellOrder: Order, executedPrice: string, amount: string, commission: string}  $matchResult
+     */
+    public function executeTransfers(array $matchResult): void
+    {
+        $buyOrder = $matchResult['buyOrder'];
+        $sellOrder = $matchResult['sellOrder'];
+        $amount = $matchResult['amount'];
+        $executedPrice = $matchResult['executedPrice'];
+        $commission = $matchResult['commission'];
+        $symbol = $buyOrder->symbol;
+
+        $usdValue = bcmul($amount, $executedPrice, 8);
+        $sellerCredit = bcsub($usdValue, $commission, 8);
+
+        $seller = User::where('id', $sellOrder->user_id)
+            ->lockForUpdate()
+            ->first();
+        $seller->balance = bcadd($seller->balance, $sellerCredit, 8);
+        $seller->save();
+
+        $sellerAsset = Asset::where('user_id', $sellOrder->user_id)
+            ->where('symbol', $symbol)
+            ->lockForUpdate()
+            ->first();
+        $sellerAsset->locked_amount = bcsub($sellerAsset->locked_amount, $amount, 8);
+        $sellerAsset->save();
+
+        Asset::firstOrCreate(
+            ['user_id' => $buyOrder->user_id, 'symbol' => $symbol],
+            ['amount' => '0.00000000', 'locked_amount' => '0.00000000']
+        );
+        $buyerAsset = Asset::where('user_id', $buyOrder->user_id)
+            ->where('symbol', $symbol)
+            ->lockForUpdate()
+            ->first();
+        $buyerAsset->amount = bcadd($buyerAsset->amount, $amount, 8);
+        $buyerAsset->save();
     }
 
     private function findMatchingSellOrder(Order $buyOrder): ?Order
