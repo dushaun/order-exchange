@@ -51,3 +51,5 @@ export interface OrderbookOrder {
   amount: string
   created_at: string
 }
+
+export type EchoConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'

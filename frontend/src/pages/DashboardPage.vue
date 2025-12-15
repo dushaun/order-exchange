@@ -1,11 +1,35 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth'
+import { useEcho } from '@/composables/useEcho'
 import OrderForm from '@/components/trading/OrderForm.vue'
 import OrderbookPanel from '@/components/trading/OrderbookPanel.vue'
 import WalletPanel from '@/components/trading/WalletPanel.vue'
 import OrderHistoryPanel from '@/components/trading/OrderHistoryPanel.vue'
 
 const { user, logout, isLoading } = useAuth()
+const { initEcho, disconnectEcho, subscribeToUserChannel, leaveUserChannel, connectionStatus } =
+  useEcho()
+
+onMounted(() => {
+  const echo = initEcho()
+  if (echo && user.value) {
+    subscribeToUserChannel(user.value.id)
+  }
+})
+
+watch(user, (newUser) => {
+  if (newUser && connectionStatus.value !== 'error') {
+    subscribeToUserChannel(newUser.id)
+  }
+})
+
+onUnmounted(() => {
+  if (user.value) {
+    leaveUserChannel(user.value.id)
+  }
+  disconnectEcho()
+})
 </script>
 
 <template>
@@ -18,6 +42,30 @@ const { user, logout, isLoading } = useAuth()
             <p v-if="user" class="text-sm text-gray-600">
               Welcome, {{ user.name || user.email }}
             </p>
+            <span
+              class="inline-flex items-center gap-1.5 text-xs"
+              :class="{
+                'text-green-600': connectionStatus === 'connected',
+                'text-yellow-600': connectionStatus === 'connecting',
+                'text-red-600': connectionStatus === 'error' || connectionStatus === 'disconnected',
+              }"
+            >
+              <span
+                class="h-2 w-2 rounded-full"
+                :class="{
+                  'bg-green-500': connectionStatus === 'connected',
+                  'bg-yellow-500': connectionStatus === 'connecting',
+                  'bg-red-500': connectionStatus === 'error' || connectionStatus === 'disconnected',
+                }"
+              ></span>
+              {{
+                connectionStatus === 'connected'
+                  ? 'Live'
+                  : connectionStatus === 'connecting'
+                    ? 'Connecting...'
+                    : 'Offline'
+              }}
+            </span>
           </div>
           <button
             type="button"

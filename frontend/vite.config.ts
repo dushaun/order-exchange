@@ -25,6 +25,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/broadcasting': {
+        target: 'https://virgosoft.test',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })
