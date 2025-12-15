@@ -1,4 +1,6 @@
 import axios from 'axios'
+import type { AxiosError } from 'axios'
+import type { ApiError } from '@/types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -9,6 +11,42 @@ const api = axios.create({
     Accept: 'application/json',
   },
 })
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
+export function normalizeApiError(error: unknown): ApiError {
+  const axiosError = error as AxiosError<{ message?: string; errors?: Record<string, string[]> }>
+
+  if (axiosError.response) {
+    return {
+      message: axiosError.response.data?.message || 'An error occurred',
+      errors: axiosError.response.data?.errors,
+      status: axiosError.response.status,
+    }
+  }
+
+  if (axiosError.request) {
+    return {
+      message: 'Network error. Please check your connection.',
+      status: 0,
+    }
+  }
+
+  return {
+    message: 'An unexpected error occurred',
+    status: 0,
+  }
+}
 
 export const getCsrfCookie = () =>
   axios.get('/sanctum/csrf-cookie', {
