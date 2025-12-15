@@ -4,6 +4,10 @@ import { AxiosError } from 'axios'
 import type { AssetSymbol, OrderSide } from '@/types'
 import { createOrder } from '@/services/api'
 
+const emit = defineEmits<{
+  orderPlaced: []
+}>()
+
 const symbols = ['BTC', 'ETH'] as const
 
 const symbol = ref<AssetSymbol>('BTC')
@@ -64,6 +68,7 @@ async function handleSubmit() {
     side.value = 'buy'
     price.value = ''
     amount.value = ''
+    emit('orderPlaced')
     setTimeout(() => {
       success.value = null
     }, 3000)

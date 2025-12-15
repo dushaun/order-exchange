@@ -68,6 +68,12 @@ function handleWalletUpdated() {
   walletPanelRef.value?.refresh()
 }
 
+function handleOrderPlaced() {
+  walletPanelRef.value?.refresh()
+  orderbookPanelRef.value?.refresh()
+  orderHistoryPanelRef.value?.refresh()
+}
+
 onMounted(() => {
   const echo = initEcho()
   if (echo && user.value) {
@@ -169,7 +175,7 @@ onUnmounted(() => {
 
     <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-        <OrderForm />
+        <OrderForm @order-placed="handleOrderPlaced" />
         <OrderbookPanel ref="orderbookPanelRef" />
         <WalletPanel ref="walletPanelRef" />
       </div>
