@@ -5,6 +5,8 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import tailwindcss from '@tailwindcss/vite'
 
+const backendUrl = process.env.VITE_BACKEND_URL || 'http://localhost'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), vueDevTools(), tailwindcss()],
@@ -16,17 +18,17 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://virgosoft.test',
+        target: backendUrl,
         changeOrigin: true,
         secure: false,
       },
       '/sanctum': {
-        target: 'https://virgosoft.test',
+        target: backendUrl,
         changeOrigin: true,
         secure: false,
       },
       '/broadcasting': {
-        target: 'https://virgosoft.test',
+        target: backendUrl,
         changeOrigin: true,
         secure: false,
       },
