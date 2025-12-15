@@ -53,3 +53,37 @@ export interface OrderbookOrder {
 }
 
 export type EchoConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
+
+export interface OrderMatchedAssetData {
+  symbol: AssetSymbol
+  amount: string
+  locked_amount: string
+}
+
+export interface OrderMatchedOrderData {
+  id: number
+  symbol: AssetSymbol
+  side: OrderSide
+  price: string
+  amount: string
+  status: OrderStatus
+}
+
+export interface OrderMatchedUserData {
+  balance: string
+  assets: OrderMatchedAssetData[]
+  order: OrderMatchedOrderData
+}
+
+export interface OrderMatchedEventPayload {
+  order_details: {
+    buy_order_id: number
+    sell_order_id: number
+    symbol: AssetSymbol
+    executed_price: string
+    amount: string
+    commission: string
+  }
+  buyer: OrderMatchedUserData
+  seller: OrderMatchedUserData
+}

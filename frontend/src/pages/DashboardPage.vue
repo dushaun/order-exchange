@@ -1,30 +1,95 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useEcho } from '@/composables/useEcho'
 import OrderForm from '@/components/trading/OrderForm.vue'
 import OrderbookPanel from '@/components/trading/OrderbookPanel.vue'
 import WalletPanel from '@/components/trading/WalletPanel.vue'
 import OrderHistoryPanel from '@/components/trading/OrderHistoryPanel.vue'
+import type { OrderMatchedEventPayload } from '@/types'
+import type { Channel } from 'laravel-echo'
 
 const { user, logout, isLoading } = useAuth()
-const { initEcho, disconnectEcho, subscribeToUserChannel, leaveUserChannel, connectionStatus } =
-  useEcho()
+const {
+  initEcho,
+  getEcho,
+  disconnectEcho,
+  subscribeToUserChannel,
+  leaveUserChannel,
+  connectionStatus,
+} = useEcho()
+
+const walletPanelRef = ref<InstanceType<typeof WalletPanel> | null>(null)
+const orderbookPanelRef = ref<InstanceType<typeof OrderbookPanel> | null>(null)
+const orderHistoryPanelRef = ref<InstanceType<typeof OrderHistoryPanel> | null>(null)
+
+const userChannel = ref<Channel | null>(null)
+
+const showUpdateFlash = ref(false)
+
+function triggerUpdateFlash() {
+  showUpdateFlash.value = true
+  setTimeout(() => {
+    showUpdateFlash.value = false
+  }, 1500)
+}
+
+let refreshTimeout: ReturnType<typeof setTimeout> | null = null
+
+function debouncedRefresh() {
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout)
+  }
+  refreshTimeout = setTimeout(() => {
+    walletPanelRef.value?.refresh()
+    orderbookPanelRef.value?.refresh()
+    orderHistoryPanelRef.value?.refresh()
+    refreshTimeout = null
+  }, 100)
+}
+
+function handleOrderMatched(payload: OrderMatchedEventPayload) {
+  try {
+    console.log('Order matched event received:', {
+      symbol: payload.order_details.symbol,
+      price: payload.order_details.executed_price,
+      amount: payload.order_details.amount,
+    })
+
+    debouncedRefresh()
+
+    triggerUpdateFlash()
+  } catch (error) {
+    console.error('Error handling OrderMatched event:', error)
+  }
+}
+
+function handleWalletUpdated() {
+  walletPanelRef.value?.refresh()
+}
 
 onMounted(() => {
   const echo = initEcho()
   if (echo && user.value) {
-    subscribeToUserChannel(user.value.id)
+    userChannel.value = subscribeToUserChannel(user.value.id)
+    userChannel.value.listen('.order.matched', handleOrderMatched)
   }
 })
 
 watch(user, (newUser) => {
-  if (newUser && connectionStatus.value !== 'error') {
-    subscribeToUserChannel(newUser.id)
+  if (newUser && getEcho() && connectionStatus.value !== 'error') {
+    userChannel.value = subscribeToUserChannel(newUser.id)
+    userChannel.value.listen('.order.matched', handleOrderMatched)
   }
 })
 
 onUnmounted(() => {
+  if (userChannel.value) {
+    userChannel.value.stopListening('.order.matched')
+  }
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout)
+  }
   if (user.value) {
     leaveUserChannel(user.value.id)
   }
@@ -66,6 +131,13 @@ onUnmounted(() => {
                     : 'Offline'
               }}
             </span>
+            <span
+              v-if="showUpdateFlash"
+              class="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 animate-pulse"
+            >
+              <span class="h-2 w-2 rounded-full bg-blue-500"></span>
+              Updated
+            </span>
           </div>
           <button
             type="button"
@@ -98,12 +170,12 @@ onUnmounted(() => {
     <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         <OrderForm />
-        <OrderbookPanel />
-        <WalletPanel />
+        <OrderbookPanel ref="orderbookPanelRef" />
+        <WalletPanel ref="walletPanelRef" />
       </div>
 
       <div class="mt-4 lg:mt-6">
-        <OrderHistoryPanel />
+        <OrderHistoryPanel ref="orderHistoryPanelRef" @wallet-updated="handleWalletUpdated" />
       </div>
     </main>
   </div>
